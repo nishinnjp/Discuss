@@ -17,6 +17,15 @@ export async function GET(
   const headers = new Headers(request.headers);
   headers.delete("content-length");
   headers.set("content-type", "application/json");
+  // Browser GET → synthetic POST keeps Sec-Fetch-* / missing Origin; Better Auth's
+  // CSRF middleware then forces origin validation and rejects. Normalize for server-proxied POST.
+  headers.delete("sec-fetch-site");
+  headers.delete("sec-fetch-mode");
+  headers.delete("sec-fetch-dest");
+  headers.set("origin", request.nextUrl.origin);
+  if (!headers.get("referer")) {
+    headers.set("referer", `${request.nextUrl.origin}/`);
+  }
 
   const internal = new Request(target, {
     method: "POST",
