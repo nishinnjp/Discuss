@@ -1,30 +1,31 @@
 import { auth } from "@/auth";
-import { headers } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
+/**
+ * Turn a browser GET into Better Auth's POST /sign-in/social so OAuth state
+ * cookies are set on the same Response as the GitHub redirect (manual
+ * auth.api + NextResponse.redirect often drops or splits cookies on Vercel).
+ */
 export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ provider: string }> }
+  request: NextRequest,
+  { params }: { params: Promise<{ provider: string }> },
 ) {
-    const { provider } = await params;
-    const callbackURL = request.nextUrl.searchParams.get("callbackURL") ?? "/";
+  const { provider } = await params;
+  const callbackURL = request.nextUrl.searchParams.get("callbackURL") ?? "/";
 
-    const response = await auth.api.signInSocial({
-        body: {
-            provider: provider as "github",
-            callbackURL,
-        },
-        headers: await headers(),
-        asResponse: true,
-    });
+  const target = new URL("/api/auth/sign-in/social", request.nextUrl.origin);
+  const headers = new Headers(request.headers);
+  headers.delete("content-length");
+  headers.set("content-type", "application/json");
 
-    const { url } = await response.json();
-    const redirect = NextResponse.redirect(url);
+  const internal = new Request(target, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      provider,
+      callbackURL,
+    }),
+  });
 
-    // Forward the state cookie Better Auth set on its response
-    response.headers.getSetCookie().forEach((cookie) => {
-        redirect.headers.append("Set-Cookie", cookie);
-    });
-
-    return redirect;
+  return auth.handler(internal);
 }
