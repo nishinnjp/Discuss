@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/components/prisma";
 import { auth } from "@/lib/auth";
 import { sleep } from "@/components/utils";
-import { revalidateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 
 
 const createCommentSchema = z.object({
@@ -49,7 +49,10 @@ export async function createCommentAction(
         return { errors: { global: ["Failed to create comment, please try again."] } };
     }
 
-    revalidateTag(`comments-${postId}`, "max");
-    
+    // Server Action: updateTag invalidates `cacheTag` from `selectCommentsByPostId` immediately.
+    // revalidateTag(tag, "max") can leave client/server caches stale per Next 16 cache-life rules.
+    updateTag(`comments-${postId}`);
+    refresh();
+
     return { success: true };
 }
