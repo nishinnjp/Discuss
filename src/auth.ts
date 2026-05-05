@@ -55,6 +55,13 @@ export const auth = betterAuth({
     "https://*.vercel.app",
   ],
 
+  // Default Better Auth rules cap /sign-in/* at 3 requests / 10s per IP — OAuth + retries hit that immediately (429).
+  rateLimit: {
+    customRules: {
+      "/sign-in/social": false,
+    },
+  },
+
   secret: process.env.BETTER_AUTH_SECRET!,
   baseURL,
 });
